@@ -41,5 +41,5 @@ git tag v1.0.0 && git push origin v1.0.0
 
 ## Limites
 - A Play Store exige pacote **AAB**; este workflow gera APK. Posso acrescentar o AAB depois.
-- Notificações do Pomodoro dependem do plugin Local Notifications (ainda não incluído).
+- Lembretes: no app, abra Perfil > engrenagem > **Ativar lembretes** e permita as notificações. Se o Android atrasar os avisos, desative a otimização de bateria do StudyFlow nas configurações do aparelho.
 - Não consegui executar o workflow aqui, então a primeira execução pode pedir ajustes. Se falhar, copie o log do erro e me envie.

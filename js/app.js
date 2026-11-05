@@ -37,6 +37,7 @@ function streak(){const ds=new Set(D().sessions.map(s=>s.date));let n=0,d=today(
 let CB=null;
 const closeM=()=>{$('#modal').className='';$('#modal').innerHTML=''};
 const fld=(f,v)=>{const val=v??'';let i;
+ if(f.t==='days')return `<div class="fl"><small>${f.l}</small><input type="hidden" name="${f.k}" value="${esc(val)}"><div class="chips2" id="dg">${DS.map((l,n)=>n?`<button type="button" class="${String(val).split(',').includes(String(n))?'on':''}" data-a="dtog" data-id="${n}">${l}</button>`:'').join('')}</div></div>`;
  if(f.t==='img')return `<div class="fl"><small>${f.l}</small><div class="imgp" id="ip" style="${val?`background-image:url(${esc(val)})`:''}">${val?'':'Sem imagem, usa a cor'}</div><input type="hidden" name="${f.k}" value="${esc(val)}"><div class="row"><button type="button" class="btn ghost" data-a="imgpick">Escolher imagem</button><button type="button" class="btn ghost" data-a="imgdel">Usar só a cor</button></div><input type="file" id="imf" data-c="img" accept="image/*" hidden></div>`;
  if(f.t==='select')i=`<select name="${f.k}">${f.o.map(([k,l])=>`<option value="${esc(k)}" ${k==val?'selected':''}>${esc(l)}</option>`).join('')}</select>`;
  else if(f.t==='area')i=`<textarea name="${f.k}" rows="3">${esc(val)}</textarea>`;
@@ -55,6 +56,7 @@ function ask(msg,fn,label='Excluir'){CB=fn;const m=$('#modal');m.className='open
 
 const TIPOS=['Prova','Teste','Trabalho','Seminário','Atividade','Participação','Simulado','Outro'].map(x=>[x,x]);
 const K={
+ h:{l:'horario',n:'Aula no horário',f:()=>[{k:'subj',l:'Matéria',t:'select',o:sOpts(1),r:1},{k:'dias',l:'Dias da semana',t:'days'},{k:'ini',l:'Início',t:'time',r:1},{k:'fim',l:'Término',t:'time'},{k:'sala',l:'Sala ou local'}],in:o=>({...o,dias:String(o.dia)}),d:()=>({dias:String((typeof S.hd==='number'?S.hd:new Date().getDay())||1),subj:S.sid||''})},
  s:{l:'subjects',n:'Matéria',f:()=>[{k:'nome',l:'Nome',r:1},{k:'prof',l:'Professor'},{k:'desc',l:'Descrição',t:'area'},{k:'cor',l:'Cor (usada quando não há imagem)',t:'color'},{k:'img',l:'Imagem de fundo (opcional)',t:'img'}],d:()=>({cor:'#0f766e'})},
  t:{l:'tasks',n:'Tarefa',f:()=>[{k:'titulo',l:'Título',r:1},{k:'desc',l:'Descrição',t:'area'},{k:'subj',l:'Matéria',t:'select',o:sOpts()},{k:'data',l:'Data de entrega',t:'date'},{k:'prior',l:'Prioridade',t:'select',o:Object.entries(PR)},{k:'status',l:'Status',t:'select',o:ST},{k:'subs',l:'Subtarefas (uma por linha)',t:'area'}],
   d:()=>({prior:'media',status:'pendente',subj:S.sid||''}),in:o=>({...o,subs:(o.subs||[]).map(s=>s.t).join('\n')}),
@@ -63,14 +65,15 @@ const K={
  g:{l:'grades',n:'Atividade avaliativa',f:()=>[{k:'name',l:'Nome da atividade',r:1},{k:'tipo',l:'Tipo',t:'select',o:TIPOS},{k:'subj',l:'Disciplina',t:'select',o:sOpts(1),r:1},{k:'nota',l:'Nota obtida (vazio = sem nota)',t:'number'},{k:'max',l:'Nota máxima',t:'number',r:1,min:0.01},{k:'peso',l:'Peso',t:'number'},...(D().profile.nivel==='medio'?[{k:'bim',l:'Bimestre',t:'select',o:[['1','1º bimestre'],['2','2º bimestre'],['3','3º bimestre'],['4','4º bimestre']]}]:[])],d:()=>{const m=new Date().getMonth()+1;return {max:10,peso:1,tipo:'Prova',bim:String(m<=4?1:m<=7?2:m<=9?3:4),subj:S.sid||''}}},
  n:{l:'notes'}};
 function edit(k,id){const c=K[k],L=D()[c.l],o=id&&L.find(x=>x.id===id);
- if(k==='g'&&!D().subjects.length)return toast('Cadastre uma matéria primeiro','err');
+ if((k==='g'||k==='h')&&!D().subjects.length)return toast('Cadastre uma matéria primeiro','err');
  let vals=o?{...o}:c.d();if(c.in&&o)vals=c.in(vals);
  modal((o?'Editar ':'Nova ')+c.n.toLowerCase(),c.f(),vals,v=>{if(c.out)v=c.out(v,o);
+  if(k==='h'){const ds=v.dias.split(',').filter(Boolean);if(!ds.length){toast('Escolha ao menos um dia','err');return false}delete v.dias;ds.forEach((d,n)=>{const e={...v,dia:+d};if(o&&n===0)Object.assign(o,e);else L.push({id:DB.uid(),created:Date.now(),...e})});toast('Horário salvo');return}
   if(o)Object.assign(o,v);else L.push({id:DB.uid(),created:Date.now(),...v});toast(o?'Alterações salvas':c.n+' criada')},
   o?`<button type="button" class="btn danger full" data-a="del" data-k="${k}" data-id="${o.id}">Excluir</button>`:'')}
 function del(k,id){const c=K[k];ask('Excluir este item? Não é possível desfazer.',()=>{
  D()[c.l]=D()[c.l].filter(x=>x.id!==id);
- if(k==='s'){D().grades=D().grades.filter(g=>g.subj!==id);['tasks','events','notes','sessions'].forEach(l=>D()[l].forEach(x=>{if(x.subj===id)x.subj=''}));S.sid=null}
+ if(k==='s'){D().grades=D().grades.filter(g=>g.subj!==id);D().lessons=D().lessons.filter(x=>x.subj!==id);D().horario=D().horario.filter(x=>x.subj!==id);['tasks','events','notes','sessions'].forEach(l=>D()[l].forEach(x=>{if(x.subj===id)x.subj=''}));S.sid=null}
  if(k==='n')S.nid=null;
  DB.save();closeM();render();toast('Excluído')})}
 
@@ -81,12 +84,36 @@ const gRow=x=>`<div class="act" data-a="edit" data-k="g" data-id="${x.id}">${esc
 const gList=sid=>{const g=D().grades.filter(x=>x.subj===sid);if(!g.length)return '<p class="mut">Nenhuma atividade avaliativa.</p>';
  if(D().profile.nivel!=='medio')return g.map(gRow).join('');
  return [1,2,3,4].map(b=>{const L=g.filter(x=>(+x.bim||1)===b);if(!L.length)return '';const a=avg(sid,b);return `<h3>${b}º bimestre<span class="sum">média ${a==null?'–':a.toFixed(1)}</span></h3>`+L.map(gRow).join('')}).join('')};
+const DIAS=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'],DS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const clsOf=d=>D().horario.filter(x=>x.dia===d).sort((a,b)=>(a.ini||'').localeCompare(b.ini||''));
+const clsCard=(x,ed)=>{const s=subj(x.subj);return `<div class="card cls" style="--c:${esc(s?.cor||'#93a39d')}"><div class="ct"><b>${esc(x.ini||'--:--')}</b><small>${esc(x.fim||'')}</small></div><div class="grow"><b>${esc(s?s.nome:'Sem matéria')}</b>${x.sala?`<small>${esc(x.sala)}</small>`:''}</div>${ed?`<button class="ib sm2" data-a="edit" data-k="h" data-id="${x.id}" aria-label="Editar aula">${ic('M4 20h4L19 9l-4-4L4 16zM13 7l4 4')}</button>`:''}</div>`};
 const nCard=n=>{const s=subj(n.subj);return `<div class="card" data-a="nedit" data-id="${n.id}"><div class="top"><b class="grow">${esc(n.titulo)}</b><button class="ib" data-a="nfav" data-id="${n.id}" aria-label="Favoritar">${n.fav?'★':'☆'}</button></div><small>${s?esc(s.nome)+': ':''}${esc(txt(n.html||'').slice(0,90))}</small></div>`};
 const nlist=()=>{const q=S.q.toLowerCase(),L=D().notes.filter(n=>!q||(n.titulo+' '+txt(n.html||'')).toLowerCase().includes(q)).sort((a,b)=>(b.fav?1:0)-(a.fav?1:0)||(b.upd||0)-(a.upd||0));
  return L.length?L.map(nCard).join(''):empty(D().notes.length?'Nada encontrado.':'Nenhuma anotação ainda. Registre resumos e ideias.','Nova anotação','data-a="nnew"')};
 const seg=(items,cur,a)=>`<div class="seg">${items.map(([k,l])=>`<button data-a="${a}" data-id="${k}" class="${cur===k?'on':''}">${l}</button>`).join('')}</div>`;
 
 /* ---------- Telas ---------- */
+const pie=it=>{const tot=it.reduce((a,x)=>a+x.n,0);let a0=-Math.PI/2;
+ const sl=it.length===1?`<circle cx="60" cy="60" r="56" fill="${esc(it[0].c)}" stroke="none"/>`:it.map(x=>{const a1=a0+x.n/tot*2*Math.PI,P=a=>`${(60+56*Math.cos(a)).toFixed(2)} ${(60+56*Math.sin(a)).toFixed(2)}`,d=`M60 60L${P(a0)}A56 56 0 ${a1-a0>Math.PI?1:0} 1 ${P(a1)}Z`;a0=a1;return `<path d="${d}" fill="${esc(x.c)}" stroke="var(--card)" stroke-width="2"/>`}).join('');
+ return `<svg class="pie" viewBox="0 0 120 120" role="img" aria-label="Atividades por matéria">${sl}</svg>`};
+function actCard(f){const act=D().subjects.map(s=>({nm:s.nome,c:s.cor,n:D().tasks.filter(x=>x.subj===s.id).length+D().grades.filter(x=>x.subj===s.id).length})).filter(x=>x.n>0);if(!act.length)return f?'<div class="card"><h3 class="t">Atividades por matéria</h3><p class="mut">Cadastre tarefas ou atividades avaliativas para ver aqui o gráfico por matéria.</p></div>':'';
+ const tot=act.reduce((a,x)=>a+x.n,0);return `<div class="card"><h3 class="t">Atividades por matéria<span class="sum">${tot} no total</span></h3><div class="pw">${pie(act)}<div class="pl">${act.map(x=>`<div><b style="background:${esc(x.c)}"></b>${esc(x.nm)}<i>${x.n}</i></div>`).join('')}</div></div></div>`}
+const LN=()=>window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.LocalNotifications;
+const nid=s=>100+Math.abs([...String(s)].reduce((a,c)=>(a*31+c.charCodeAt(0))|0,7))%2000000000;
+async function nOk(ask){const l=LN();if(!l)return false;try{let p=await l.checkPermissions();if(p.display!=='granted'&&ask)p=await l.requestPermissions();return p.display==='granted'}catch(e){return false}}
+let nTm=0;
+function syncNotifs(){clearTimeout(nTm);nTm=setTimeout(doSync,900)}
+async function doSync(){const l=LN();if(!l)return;try{
+ const pend=(await l.getPending()).notifications.filter(n=>n.id!==1);if(pend.length)await l.cancel({notifications:pend.map(n=>({id:n.id}))});
+ if(!D().profile.notif||!(await nOk(false)))return;
+ const now=Date.now(),out=[],ch='studyflow';
+ const add=(id,title,body,at)=>{if(at.getTime()>now+5000)out.push({id:nid(id),title,body,channelId:ch,schedule:{at,allowWhileIdle:true}})};
+ D().tasks.filter(t=>t.status!=='concluida'&&t.data).forEach(t=>{const s=subj(t.subj),b=t.titulo+(s?' ('+s.nome+')':'');add(t.id+'a','Tarefa vence hoje',b,new Date(t.data+'T08:00:00'));add(t.id+'b','Tarefa vence amanhã',b,new Date(addD(t.data,-1)+'T18:00:00'))});
+ D().events.filter(e=>e.data).forEach(e=>{const s=subj(e.subj),at=new Date(e.data+'T'+(e.hora||'08:00')+':00');if(e.hora)at.setMinutes(at.getMinutes()-30);add(e.id,(CATL[e.cat]||'Evento')+(e.hora?' às '+e.hora:' hoje'),e.titulo+(s?' ('+s.nome+')':''),at)});
+ D().horario.forEach(x=>{if(!x.ini)return;const [h,m]=x.ini.split(':').map(Number),t=h*60+m-15;if(isNaN(t)||t<0)return;const s=subj(x.subj);out.push({id:nid(x.id),title:'Aula em 15 minutos',body:(s?s.nome:'Aula')+(x.sala?', '+x.sala:''),channelId:ch,schedule:{on:{weekday:x.dia+1,hour:Math.floor(t/60),minute:t%60},allowWhileIdle:true}})});
+ if(out.length)await l.schedule({notifications:out.slice(0,400)})}catch(e){}}
+function tmNotif(on){const l=LN();if(!l)return;if(!on){l.cancel({notifications:[{id:1}]}).catch(()=>{});return}
+ nOk(true).then(ok=>{if(!ok||!T.run)return;l.schedule({notifications:[{id:1,title:T.mode==='f'?'Foco concluído!':'Pausa encerrada',body:T.mode==='f'?'Hora de uma pausa.':'Vamos voltar a focar?',channelId:'studyflow',schedule:{at:new Date(T.end),allowWhileIdle:true}}]}).catch(()=>{})})}
 function nativeExport(){const CP=window.Capacitor&&window.Capacitor.Plugins;if(!(CP&&CP.Filesystem&&CP.Share))return false;
  CP.Filesystem.writeFile({path:`studyflow-${today()}.json`,data:JSON.stringify({app:'studyflow',v:1,data:D()},null,1),directory:'CACHE',encoding:'utf8'}).then(r=>CP.Share.share({title:'Backup StudyFlow',url:r.uri})).catch(()=>toast('Não foi possível exportar','err'));return true}
 const hbar=(l,v,max,c,r)=>`<div class="hb"><span>${esc(l)}</span><div><i style="width:${Math.max(2,Math.min(100,v/max*100))}%;background:${esc(c)}"></i></div><b>${r}</b></div>`;
@@ -103,8 +130,10 @@ V.home=()=>{const p=D().profile,t=today(),h=new Date().getHours(),td=studied(t),
  const ls=D().sessions.slice().sort((a,b)=>b.ts-a.ts)[0],cs=subj(ls?.subj)||D().subjects[0],pad=n=>String(n).padStart(2,'0'),en=p.nivel==='medio'&&p.enem?Math.ceil((new Date(p.enem+'T12:00:00')-new Date(t+'T12:00:00'))/864e5):null;
  return `<div class="top"><span class="logo">${ic(NAV[2][2])}</span><b class="grow lg2">StudyFlow</b><button class="ib" data-a="goto" data-id="agenda" aria-label="Agenda">${ic('M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8M10 21h4')}</button></div>
 <h1 style="margin-top:18px">Olá, ${p.name?esc(p.name.split(' ')[0]):'estudante'}!</h1><p class="mut cap">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}</p>
+${actCard(1)}
 <div class="card meta"><div class="top"><b class="grow">Meta de hoje</b><span class="pc">${pc}%</span></div><div class="bar"><i style="width:${pc}%"></i></div><small>${hm(td)} de ${hm(p.meta)}, sequência de ${streak()} dia${streak()===1?'':'s'}</small></div>
 ${p.nivel==='medio'?`<div class="card top" data-a="goto" data-id="perfil"><span class="ic">${ic('M12 3l9 5-9 5-9-5zM7 11v5c0 1.5 2.2 3 5 3s5-1.5 5-3v-5')}</span><div class="grow"><b>${en==null?'ENEM e vestibular':en>0?en+' dias para a prova':en===0?'A prova é hoje!':'Prova realizada'}</b><small>${p.enem?'Data: '+fmt(p.enem):'Defina a data no Perfil'}</small></div></div>`:''}<div class="grid2"><div class="card tl" data-a="goto" data-id="mat" data-sub="tasks"><span class="ic">${ic('M5 5h14v14H5zM9 10h6M9 14h4')}</span><small>Tarefas</small><b>${pad(pend.length)}</b></div><div class="card tl" data-a="goto" data-id="agenda"><span class="ic">${ic(NAV[1][2])}</span><small>Próximas provas</small><b>${pad(D().events.filter(e=>(e.cat==='prova'||e.cat==='simulado')&&e.data>=t).length)}</b></div></div>
+${clsOf(new Date().getDay()).length?`<h2>Aulas de hoje</h2>${clsOf(new Date().getDay()).map(x=>clsCard(x)).join('')}`:''}
 <div class="top"><h2 class="grow">Próximas atividades</h2><button class="link" data-a="goto" data-id="agenda">Ver todas ›</button></div>${list(D().events.filter(e=>e.data>=t).sort(cmpEv).slice(0,3),'Nenhuma atividade agendada.')}
 ${cs?`<h2>Continue estudando</h2><div class="card top" data-a="cont" data-id="${cs.id}"><span class="ic">${ic(NAV[2][2])}</span><div class="grow"><b>${esc(cs.nome)}</b><small>${ls?'Último estudo: '+fmt(ls.date):'Comece uma sessão de foco'}</small></div><span class="play">▶</span></div>`:''}
 <button class="btn full" data-a="quick">Adicionar rápido</button>
@@ -119,7 +148,7 @@ ${as.length?`<div class="card"><h3 class="t">Desempenho<span class="sum">mínima
 <h2>Atividade recente</h2>${acts.length?acts.map(a=>`<div class="act">${esc(a.x)}<small>${new Date(a.t).toLocaleDateString('pt-BR')}</small></div>`).join(''):'<p class="mut">Suas atividades aparecerão aqui.</p>'}`};
 
 V.agenda=()=>{const d=S.agD,dt=new Date(d+'T12:00:00'),v=S.agV,ds=x=>D().events.filter(e=>e.data===x).sort(cmpEv);
- const day=x=>ds(x).length?ds(x).map(evRow).join(''):'<p class="mut">Sem compromissos.</p>';let title,h;
+ const day=x=>{const cl=clsOf(new Date(x+'T12:00:00').getDay());return cl.map(c=>clsCard(c)).join('')+(ds(x).length?ds(x).map(evRow).join(''):(cl.length?'':'<p class="mut">Sem compromissos.</p>'))};let title,h;
  if(v==='day'){title=dl(d,{weekday:'long',day:'numeric',month:'long'});h=day(d)}
  else if(v==='week'){const s=addD(d,-dt.getDay());title=fmt(s)+' a '+fmt(addD(s,6));h=Array.from({length:7},(_,i)=>{const x=addD(s,i);return `<h3 class="${x===today()?'tdy':''}">${dl(x,{weekday:'long',day:'numeric'})}</h3>${day(x)}`}).join('')}
  else{title=dl(d,{month:'long',year:'numeric'});const y=dt.getFullYear(),m=dt.getMonth(),first=new Date(y,m,1).getDay(),n=new Date(y,m+1,0).getDate();
@@ -131,10 +160,13 @@ V.agenda=()=>{const d=S.agD,dt=new Date(d+'T12:00:00'),v=S.agV,ds=x=>D().events.
 MT.subjects=()=>{const ss=D().subjects;if(!ss.length)return empty('Nenhuma matéria cadastrada. Comece adicionando suas disciplinas.','Nova matéria','data-a="edit" data-k="s"');
  const m=D().profile.media,as=ss.map(s=>avg(s.id)),vs=as.filter(a=>a!=null),og=vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:0,C1=2*Math.PI*40;
  return `<div class="tiles">${ss.map((s,i)=>`<div class="tile" style="--c:${esc(s.cor)}${s.img?`;background-image:linear-gradient(180deg,#0002,#000b),url(${esc(s.img)});background-size:cover;background-position:center`:''}" data-a="sid" data-id="${s.id}">${ic(NAV[2][2])}<b>${esc(s.nome)}</b><small>Média: ${as[i]==null?'–':as[i].toFixed(1)}</small></div>`).join('')}</div>
-<h2>Resumo geral</h2><div class="card hr"><svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" stroke="var(--line)" stroke-width="10"/><circle cx="50" cy="50" r="40" stroke="#34d399" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C1*og/10} ${C1}" transform="rotate(-90 50 50)"/><text x="50" y="57" text-anchor="middle" fill="currentColor" stroke="none" font-size="20" font-weight="800">${Math.round(og*10)}%</text></svg><div class="grow"><div class="act">Disciplinas: ${ss.length}</div><div class="act">Aprovadas: ${vs.filter(a=>a>=m).length}</div><div class="act">Em atenção: ${vs.filter(a=>a<m).length}</div></div></div>`};
+<h2>Resumo geral</h2><div class="card hr"><svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" stroke="var(--line)" stroke-width="10"/><circle cx="50" cy="50" r="40" stroke="#34d399" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C1*og/10} ${C1}" transform="rotate(-90 50 50)"/><text x="50" y="57" text-anchor="middle" fill="currentColor" stroke="none" font-size="20" font-weight="800">${Math.round(og*10)}%</text></svg><div class="grow"><div class="act">Disciplinas: ${ss.length}</div><div class="act">Aprovadas: ${vs.filter(a=>a>=m).length}</div><div class="act">Em atenção: ${vs.filter(a=>a<m).length}</div></div></div>${actCard()}`};
 MT.tasks=()=>{const f=S.f,L=D().tasks.filter(t=>(!f.subj||t.subj===f.subj)&&(!f.prior||t.prior===f.prior)&&(!f.status||t.status===f.status)).sort((a,b)=>(a.status==='concluida')-(b.status==='concluida')||(a.data||'9').localeCompare(b.data||'9'));
  const sel=(k,o)=>`<select data-c="flt" data-k="${k}">${o.map(([v,l])=>`<option value="${esc(v)}" ${f[k]===v?'selected':''}>${l}</option>`).join('')}</select>`;
  return `<button class="btn full" data-a="edit" data-k="t">Nova tarefa</button><div class="chips2">${[['','Todas'],['pendente','Pendentes'],['andamento','Em andamento'],['concluida','Concluídas']].map(([v,l])=>`<button class="${S.f.status===v?'on':''}" data-a="fst" data-id="${v}">${l}</button>`).join('')}</div><div class="filters">${sel('subj',[['','Matéria'],...sOpts(1)])}${sel('prior',[['','Prioridade'],...Object.entries(PR)])}</div>`+(L.length?L.map(taskCard).join(''):empty(D().tasks.length?'Nenhuma tarefa com esses filtros.':'Nenhuma tarefa ainda. Adicione a primeira.'))};
+MT.schedule=()=>{if(!D().subjects.length)return empty('Cadastre suas matérias para montar o horário de aulas.','Nova matéria','data-a="edit" data-k="s"');
+ const hd=S.hd??(new Date().getDay()||1),tdy=new Date().getDay(),sec=i=>{const L=clsOf(i);return L.length?L.map(x=>clsCard(x,1)).join(''):'<p class="mut">Sem aulas neste dia.</p>'};
+ return `<button class="btn full" data-a="edit" data-k="h">Adicionar aula ao horário</button><div class="chips2">${DS.map((l,i)=>i?`<button class="${hd===i?'on':''} ${i===tdy?'td':''}" data-a="hd" data-id="${i}">${l}</button>`:'').join('')}<button class="${hd==='w'?'on':''}" data-a="hd" data-id="w">Semana</button></div>`+(hd==='w'?[1,2,3,4,5,6].map(i=>`<h3 class="${i===tdy?'tdy':''}">${DIAS[i]}</h3>${sec(i)}`).join(''):`<h3>${DIAS[hd]}</h3>${sec(hd)}${D().horario.length?'':'<p class="mut">Adicione as aulas de cada dia para ver aqui quais matérias você tem.</p>'}`)};
 MT.grades=()=>{const ss=D().subjects;if(!ss.length)return empty('Cadastre uma matéria para lançar notas.','Nova matéria','data-a="edit" data-k="s"');
  const as=ss.map(s=>avg(s.id)).filter(a=>a!=null),o=as.length?as.reduce((a,b)=>a+b,0)/as.length:null;
  return `<div class="hero"><small>Média geral (mínima ${D().profile.media})</small><div class="big">${o==null?'–':o.toFixed(1)}</div><small>${verdict(o)}</small></div><h2>Desempenho por disciplina</h2>${ss.map(s=>{const a=avg(s.id);return a==null?'':hbar(s.nome,a,10,s.cor,a.toFixed(1))}).join('')}<button class="btn full" data-a="edit" data-k="g">Nova atividade avaliativa</button>`+ss.map(s=>{const a=avg(s.id);return `<h3>${esc(s.nome)}: ${D().profile.nivel==='medio'?'média anual ':''}${a==null?'–':a.toFixed(1)}, ${verdict(a)}</h3>${gList(s.id)}`}).join('')};
@@ -144,9 +176,10 @@ const subjPage=()=>{const s=subj(S.sid);if(!s){S.sid=null;return V.mat()}const a
  return `<div class="top"><button class="ib" data-a="back" aria-label="Voltar">‹</button><h1 class="grow">${esc(s.nome)}</h1><button class="ib" data-a="edit" data-k="s" data-id="${s.id}" aria-label="Editar">✎</button></div>
 <div class="hero" style="${s.img?`background-image:linear-gradient(180deg,#0002,#000b),url(${esc(s.img)});background-size:cover;background-position:center`:''}"><small>${esc(s.prof||'Professor não informado')}</small><div class="big">${a==null?'–':a.toFixed(1)}</div><small>${verdict(a)}</small></div>${s.desc?`<p>${esc(s.desc)}</p>`:''}
 <h2>Notas</h2>${gList(s.id)}<button class="btn ghost full" data-a="edit" data-k="g">Nova atividade avaliativa</button>
+<h2>Horário</h2>${(()=>{const h=D().horario.filter(x=>x.subj===s.id).sort((a,b)=>((a.dia+6)%7)-((b.dia+6)%7)||(a.ini||'').localeCompare(b.ini||''));return h.length?h.map(x=>`<div class="act" data-a="edit" data-k="h" data-id="${x.id}">${DIAS[x.dia]}<small>${esc(x.ini||'')}${x.fim?' às '+esc(x.fim):''}${x.sala?', '+esc(x.sala):''}</small></div>`).join(''):'<p class="mut">Sem aulas no horário.</p>'})()}<button class="btn ghost full" data-a="edit" data-k="h">Adicionar aula ao horário</button>
 <h2>Tarefas</h2>${L.length?L.map(taskCard).join(''):'<p class="mut">Nenhuma tarefa.</p>'}<button class="btn ghost full" data-a="edit" data-k="t">Nova tarefa</button>
 <h2>Anotações</h2>${N.length?N.map(nCard).join(''):'<p class="mut">Nenhuma anotação.</p>'}<button class="btn ghost full" data-a="nnew">Nova anotação</button>`};
-V.mat=()=>S.sid?subjPage():`<div class="top"><h1 class="grow">${W()}</h1><button class="ib plus" data-a="qk" data-id="${{subjects:'s',tasks:'t',grades:'g',notes:'n'}[S.mat]}" aria-label="Novo">+</button></div>${seg([['subjects',W()],['tasks','Tarefas'],['grades','Notas'],['notes','Anotações']],S.mat,'msub')}${MT[S.mat]()}`;
+V.mat=()=>S.sid?subjPage():`<div class="top"><h1 class="grow">${W()}</h1><button class="ib plus" data-a="qk" data-id="${{subjects:'s',tasks:'t',schedule:'h',grades:'g',notes:'n'}[S.mat]}" aria-label="Novo">+</button></div>${seg([['subjects',W()],['tasks','Tarefas'],['schedule','Horário'],['grades','Notas'],['notes','Anotações']],S.mat,'msub')}${MT[S.mat]()}`;
 
 const noteEd=()=>{const n=D().notes.find(x=>x.id===S.nid)||{};
  return `<div class="top"><button class="ib" data-a="nback" aria-label="Voltar">‹</button><h1 class="grow">${n.id?'Editar anotação':'Nova anotação'}</h1></div>
@@ -165,7 +198,7 @@ const RC=2*Math.PI*110,ringD=()=>{const f=T.mode==='free'?(T.el%3600)/3600:T.lef
 function drawT(){const e=$('#tm');if(e){e.textContent=fmtT();$('#tr').setAttribute('stroke-dasharray',ringD())}document.title=T.run?fmtT()+' StudyFlow':'StudyFlow'}
 const notify=m=>{try{if(window.Notification&&Notification.permission==='granted')new Notification('StudyFlow',{body:m})}catch(e){}toast(m)};
 function log(min){D().sessions.push({id:DB.uid(),ts:Date.now(),date:today(),min,subj:T.subj});DB.save()}
-function tmDone(){const m=T.mode;if(m==='f'){log(Math.round(modeSec('f')/60));T.cyc++}
+function tmDone(){tmNotif(0);const m=T.mode;if(m==='f'){log(Math.round(modeSec('f')/60));T.cyc++}
  notify(m==='f'?'Foco concluído! Hora da pausa.':'Pausa encerrada. Vamos focar?');navigator.vibrate&&navigator.vibrate([300,150,300]);
  tmReset(m==='f'?(T.cyc%4===0?'l':'c'):'f');if(S.tab==='foco')render();else drawT()}
 setInterval(()=>{if(!T.run)return;if(T.mode==='free')T.el=Math.floor((Date.now()-T.start)/1000);else{T.left=Math.max(0,Math.ceil((T.end-Date.now())/1000));if(!T.left)return tmDone()}drawT()},250);
@@ -187,10 +220,11 @@ const idCard=p=>{const row=(l,v)=>v?`<div><small>${l}</small><b>${esc(v)}</b></d
 <div class="idg">${(p.nivel==='medio'?[['Série',p.serie],['Turma',p.turma],['Turno',p.turno]]:[['Curso',p.curso],['Turma',p.turma],['Período',p.periodo],['Turno',p.turno]]).map(([l,v])=>row(l,v)).join('')}${row('Meta diária',hm(p.meta))}${row('Média mínima',String(p.media))}</div></div>`};
 V.perfil=()=>{const p=D().profile,saved=!!p.name&&!S.pedit,cur=S.pfoto!==undefined?S.pfoto:p.foto,t=today(),days=Array.from({length:7},(_,i)=>addD(t,i-6)),vals=days.map(studied),wk=vals.reduce((a,b)=>a+b,0),mx=Math.max(...vals,p.meta,1),tot=D().sessions.reduce((a,s)=>a+(+s.min||0),0),wp=Math.min(100,Math.round(wk/p.metaSem*100));
  const inp=(k,l,m)=>`<label>${l}<input name="${k}" ${m?'inputmode="decimal"':''} value="${esc(p[k])}"></label>`;
- return `${saved?idCard(p):''}<div class="av" ${saved?'hidden':''}><span id="pv">${cur?`<img src="${esc(cur)}" alt="">`:esc((p.name||'E')[0].toUpperCase())}</span><b>${esc(p.name||'Estudante')}</b><small>Estudante</small><div class="row"><button type="button" class="btn ghost" data-a="pfoto">Escolher foto</button><button type="button" class="btn ghost" data-a="pdel">Remover</button></div><input type="file" id="ph" data-c="foto" accept="image/*" hidden></div><form id="pf" ${saved?'hidden':''}>${perfFields(p,inp)}${inp('meta','Meta diária (minutos)',1)}${inp('metaSem','Meta semanal (minutos)',1)}${inp('media','Média mínima para aprovação (0 a 10)',1)}<button class="btn full">Salvar perfil</button>${p.name?'<button type="button" class="btn ghost full" data-a="pcancel">Cancelar</button>':''}</form>
+ return `<div class="top"><h1 class="grow">Perfil</h1><div class="dd"><button class="ib" data-a="ddt" aria-label="Configurações" aria-expanded="${!!S.dd}">${ic('M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z')}</button>${S.dd?`<div class="ddm"><button data-a="theme">Tema: ${p.theme==='dark'?'escuro':'claro'} (alternar)</button><button data-a="notif">${p.notif&&LN()?'Lembretes: ligados (desativar)':'Ativar lembretes e notificações'}</button><button data-a="exp">Exportar dados</button><button data-a="imp">Importar dados</button><hr><button class="dg" data-a="clr">Limpar dados locais</button></div>`:''}</div></div>
+${saved?idCard(p):''}<div class="av" ${saved?'hidden':''}><span id="pv">${cur?`<img src="${esc(cur)}" alt="">`:esc((p.name||'E')[0].toUpperCase())}</span><b>${esc(p.name||'Estudante')}</b><small>Estudante</small><div class="row"><button type="button" class="btn ghost" data-a="pfoto">Escolher foto</button><button type="button" class="btn ghost" data-a="pdel">Remover</button></div><input type="file" id="ph" data-c="foto" accept="image/*" hidden></div><form id="pf" ${saved?'hidden':''}>${perfFields(p,inp)}${inp('meta','Meta diária (minutos)',1)}${inp('metaSem','Meta semanal (minutos)',1)}${inp('media','Média mínima para aprovação (0 a 10)',1)}<button class="btn full">Salvar perfil</button>${p.name?'<button type="button" class="btn ghost full" data-a="pcancel">Cancelar</button>':''}</form>
 <h2>Produtividade</h2><div class="card"><small>Últimos 7 dias: ${hm(wk)} de ${hm(p.metaSem)}</small><div class="bar"><i style="width:${wp}%"></i></div><div class="bars">${days.map((d,i)=>`<div><i style="height:${vals[i]/mx*100}%"></i><small>${dl(d,{weekday:'short'}).slice(0,3)}</small></div>`).join('')}</div></div>
 <div class="grid2"><div class="card stat"><b>${streak()}</b><small>dias seguidos</small></div><div class="card stat"><b>${hm(tot)}</b><small>total estudado</small></div></div>
-<h2>Configurações</h2><button class="btn ghost full" data-a="theme">Tema: ${p.theme==='dark'?'escuro':'claro'} (alternar)</button><button class="btn ghost full" data-a="notif">Ativar notificações</button><button class="btn ghost full" data-a="exp">Exportar dados (JSON)</button><button class="btn ghost full" data-a="imp">Importar dados</button><button class="btn danger full" data-a="clr">Limpar dados locais</button>`};
+`};
 
 /* ---------- Render e eventos ---------- */
 const chooser=()=>`<div class="top"><span class="logo">${ic(NAV[2][2])}</span><b class="grow lg2">StudyFlow</b></div><h1 style="margin-top:24px">Qual é o seu nível de ensino?</h1><p class="mut">O app se adapta ao seu nível. Você pode mudar depois no Perfil.</p>
@@ -205,9 +239,9 @@ function render(){document.documentElement.dataset.theme=D().profile.theme;docum
   const m=n('meta',1,1440),w=n('metaSem',1,10080),a=n('media',0,10);if(m==null||w==null||a==null)return toast('Confira as metas (minutos) e a média (0 a 10)','err');
   if(!E.name.value.trim())return toast('Informe seu nome para criar a carteirinha','err');['name','inst','curso','turma','periodo','turno','serie','enem','nivel'].forEach(k=>{if(E[k])p[k]=E[k].value.trim()});Object.assign(p,{meta:Math.round(m),metaSem:Math.round(w),media:a});if(S.pfoto!==undefined)p.foto=S.pfoto;S.pfoto=undefined;DB.save();S.pedit=false;render();toast('Perfil salvo')}}
 Object.assign(A,{
- tab:d=>{S.tab=d.id;S.sid=null;S.pedit=false;S.pfoto=undefined;render();$('#main').scrollTop=0},
+ tab:d=>{S.tab=d.id;S.sid=null;S.pedit=false;S.pfoto=undefined;S.dd=false;render();$('#main').scrollTop=0},
  goto:d=>{S.tab=d.id;if(d.sub)S.mat=d.sub;S.sid=null;render()},
- imgpick:()=>$('#imf').click(),imgdel:()=>{document.querySelector('[name=img]').value='';const e=$('#ip');e.style.backgroundImage='';e.textContent='Sem imagem, usa a cor'},nivel:d=>{const p=D().profile;p.nivel=d.id;if(d.id==='medio'&&p.meta===120&&p.metaSem===600){p.meta=90;p.metaSem=450}DB.save();render()},pedit:()=>{S.pedit=true;render()},pcancel:()=>{S.pedit=false;S.pfoto=undefined;render()},pfoto:()=>$('#ph').click(),pdel:()=>{S.pfoto='';const v=$('#pv');if(v)v.textContent=((D().profile.name||'E')[0]).toUpperCase()},msub:d=>{S.mat=d.id;render()},fst:d=>{S.f.status=d.id;render()},cont:d=>{T.subj=d.id;S.tab='foco';S.sid=null;render()},sid:d=>{S.sid=d.id;render();$('#main').scrollTop=0},back:()=>{S.sid=null;render()},
+ imgpick:()=>$('#imf').click(),imgdel:()=>{document.querySelector('[name=img]').value='';const e=$('#ip');e.style.backgroundImage='';e.textContent='Sem imagem, usa a cor'},nivel:d=>{const p=D().profile;p.nivel=d.id;if(d.id==='medio'&&p.meta===120&&p.metaSem===600){p.meta=90;p.metaSem=450}DB.save();render()},ddt:()=>{S.dd=!S.dd;render()},pedit:()=>{S.pedit=true;render()},pcancel:()=>{S.pedit=false;S.pfoto=undefined;render()},pfoto:()=>$('#ph').click(),pdel:()=>{S.pfoto='';const v=$('#pv');if(v)v.textContent=((D().profile.name||'E')[0]).toUpperCase()},msub:d=>{S.mat=d.id;render()},hd:d=>{S.hd=d.id==='w'?'w':+d.id;render()},dtog:d=>{const h=document.querySelector('[name=dias]'),z=new Set(h.value.split(',').filter(Boolean));z.has(d.id)?z.delete(d.id):z.add(d.id);h.value=[...z].join(',');document.querySelectorAll('#dg button').forEach(b=>b.classList.toggle('on',z.has(b.dataset.id)))},fst:d=>{S.f.status=d.id;render()},cont:d=>{T.subj=d.id;S.tab='foco';S.sid=null;render()},sid:d=>{S.sid=d.id;render();$('#main').scrollTop=0},back:()=>{S.sid=null;render()},
  close:closeM,yes:()=>{const f=CB;CB=null;f&&f()},
  tview:d=>{const t=D().tasks.find(x=>x.id===d.id);if(!t)return;const s=subj(t.subj),sd=t.subs||[],stl=Object.fromEntries(ST)[t.status]||'';
   $('#modal').className='open';$('#modal').innerHTML=`<div class="sheet"><div class="top"><h2 class="grow" style="margin:0">${esc(t.titulo)}</h2><button class="ib" data-a="edit" data-k="t" data-id="${t.id}" aria-label="Editar tarefa">${ic('M4 20h4L19 9l-4-4L4 16zM13 7l4 4')}</button></div>
@@ -217,7 +251,7 @@ ${t.desc?`<p style="white-space:pre-wrap">${esc(t.desc)}</p>`:'<p class="mut">Se
 ${sd.length?`<h3>Subtarefas</h3>${sd.map((x,i)=>`<label class="sub"><input type="checkbox" data-c="sub" data-id="${t.id}" data-i="${i}" ${x.d?'checked':''}>${esc(x.t)}</label>`).join('')}`:''}
 <div class="row"><button class="btn ghost" data-a="close">Fechar</button><button class="btn" data-a="tgl" data-id="${t.id}" data-close="1">${t.status==='concluida'?'Reabrir':'Concluir'}</button></div></div>`},
  edit:d=>edit(d.k,d.id),del:d=>del(d.k,d.id),
- quick:()=>{$('#modal').className='open';$('#modal').innerHTML=`<div class="sheet"><h2>Criar</h2>${[['t','Tarefa'],['e','Evento na agenda'],['s','Matéria'],['g','Atividade avaliativa'],['n','Anotação']].map(([k,l])=>`<button class="btn ghost full" data-a="qk" data-id="${k}">${l}</button>`).join('')}</div>`},
+ quick:()=>{$('#modal').className='open';$('#modal').innerHTML=`<div class="sheet"><h2>Criar</h2>${[['t','Tarefa'],['e','Evento na agenda'],['s','Matéria'],['g','Atividade avaliativa'],['h','Aula no horário'],['n','Anotação']].map(([k,l])=>`<button class="btn ghost full" data-a="qk" data-id="${k}">${l}</button>`).join('')}</div>`},
  qk:d=>{closeM();d.id==='n'?A.nnew():edit(d.id)},
  tgl:d=>{const t=D().tasks.find(x=>x.id===d.id);if(!t)return;t.status=t.status==='concluida'?'pendente':'concluida';t.doneAt=t.status==='concluida'?Date.now():0;DB.save();render();if(d.close)closeM()},
  agv:d=>{S.agV=d.id;render()},agday:d=>{S.agD=d.id;render()},agtoday:()=>{S.agD=today();render()},
@@ -228,14 +262,16 @@ ${sd.length?`<h3>Subtarefas</h3>${sd.map((x,i)=>`<label class="sub"><input type=
   const o=D().notes.find(x=>x.id===S.nid),v={titulo:t||'Sem título',html:h,subj:s,upd:Date.now()};if(o)Object.assign(o,v);else D().notes.push({id:DB.uid(),created:Date.now(),fav:false,...v});
   DB.save();S.nid=null;render();toast('Anotação salva')},
  fmt:d=>{const m=d.m;if(m==='mark'){const r=getSelection();if(r.rangeCount&&!r.isCollapsed){try{r.getRangeAt(0).surroundContents(document.createElement('mark'))}catch(e){toast('Selecione um trecho simples','err')}}}else if(m==='h')document.execCommand('formatBlock',false,'h3');else document.execCommand(m)},
- mode:d=>{tmReset(d.id);render()},
+ mode:d=>{tmNotif(0);tmReset(d.id);render()},
  tstart:()=>{if(window.Notification&&Notification.permission==='default')Notification.requestPermission();
-  if(T.mode==='free')T.start=Date.now()-T.el*1000;else T.end=Date.now()+T.left*1000;T.run=true;render()},
- tpause:()=>{if(T.mode==='free')T.el=Math.floor((Date.now()-T.start)/1000);else T.left=Math.max(0,Math.ceil((T.end-Date.now())/1000));T.run=false;render()},
- treset:()=>{tmReset();render()},
+  if(T.mode==='free')T.start=Date.now()-T.el*1000;else T.end=Date.now()+T.left*1000;T.run=true;tmNotif(T.mode!=='free');render()},
+ tpause:()=>{if(T.mode==='free')T.el=Math.floor((Date.now()-T.start)/1000);else T.left=Math.max(0,Math.ceil((T.end-Date.now())/1000));T.run=false;tmNotif(0);render()},
+ treset:()=>{tmNotif(0);tmReset();render()},
  tsave:()=>{const m=Math.floor(T.el/60);if(m<1)return toast('Estude ao menos 1 minuto','err');log(m);tmReset('free');render();toast('Sessão salva')},
  theme:()=>{const p=D().profile;p.theme=p.theme==='dark'?'light':'dark';DB.save();render()},
- notif:()=>{if(!window.Notification)return toast('Notificações não são suportadas aqui','err');Notification.requestPermission().then(r=>toast(r==='granted'?'Notificações ativadas':'Permissão negada',r==='granted'?'ok':'err'))},
+ notif:async()=>{const l=LN();if(!l){if(!window.Notification)return toast('Notificações não são suportadas aqui','err');return Notification.requestPermission().then(r=>toast(r==='granted'?'Notificações ativadas':'Permissão negada',r==='granted'?'ok':'err'))}
+  const p=D().profile;if(p.notif){p.notif=false;DB.save();render();return toast('Lembretes desativados')}
+  if(!(await nOk(true)))return toast('Permissão negada. Ative nas configurações do Android.','err');p.notif=true;DB.save();render();toast('Lembretes ativados: tarefas, eventos e aulas')},
  exp:()=>{if(nativeExport())return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({app:'studyflow',v:1,data:D()},null,1)],{type:'application/json'}));a.download=`studyflow-${today()}.json`;document.body.appendChild(a);a.click();a.remove();toast('Backup exportado')},
  imp:()=>$('#file').click(),
  clr:()=>ask('Apagar TODOS os dados deste aparelho?',()=>{DB.d=DB.def();DB.save();S.sid=null;closeM();render();toast('Dados apagados')},'Apagar')});
@@ -243,7 +279,7 @@ Object.assign(C,{
  img:(v,b)=>{const f=b.files[0];b.value='';if(!f)return;if(!f.type.startsWith('image/'))return toast('Escolha um arquivo de imagem','err');const r=new FileReader();r.onerror=()=>toast('Falha ao ler a imagem','err');r.onload=()=>{const im=new Image();im.onerror=()=>toast('Imagem inválida','err');im.onload=()=>{const W=480,H=300,c=document.createElement('canvas');c.width=W;c.height=H;const k=Math.max(W/im.width,H/im.height),w=im.width*k,h=im.height*k;c.getContext('2d').drawImage(im,(W-w)/2,(H-h)/2,w,h);const u=c.toDataURL('image/jpeg',.75);document.querySelector('[name=img]').value=u;const e=$('#ip');e.style.backgroundImage=`url(${u})`;e.textContent=''};im.src=r.result};r.readAsDataURL(f)},foto:(v,b)=>{const f=b.files[0];b.value='';if(!f)return;if(!f.type.startsWith('image/'))return toast('Escolha um arquivo de imagem','err');const r=new FileReader();r.onerror=()=>toast('Falha ao ler a imagem','err');r.onload=()=>{const im=new Image();im.onerror=()=>toast('Imagem inválida','err');im.onload=()=>{const z=256,c=document.createElement('canvas');c.width=c.height=z;const m=Math.min(im.width,im.height);c.getContext('2d').drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,z,z);S.pfoto=c.toDataURL('image/jpeg',.82);const v=$('#pv');if(v)v.innerHTML=`<img src="${S.pfoto}" alt="">`;toast('Foto selecionada. Toque em Salvar perfil.')};im.src=r.result};r.readAsDataURL(f)},flt:(v,b)=>{S.f[b.dataset.k]=v;render()},tsubj:v=>{T.subj=v},
  sub:(v,b)=>{const t=D().tasks.find(x=>x.id===b.dataset.id);if(t&&t.subs[+b.dataset.i]){t.subs[+b.dataset.i].d=b.checked;DB.save();render()}},
  cfg:(v,b)=>{const x=parseInt(v);if(!(x>=1&&x<=180)){toast('Use de 1 a 180 minutos','err');return render()}D().profile.pomo[b.dataset.k]=x;DB.save();if(!T.run)tmReset();render()}});
-document.addEventListener('click',e=>{if(e.target.id==='modal')return closeM();const b=e.target.closest('[data-a]');if(b&&A[b.dataset.a])A[b.dataset.a](b.dataset,b)});
+document.addEventListener('click',e=>{if(e.target.id==='modal')return closeM();if(S.dd&&!e.target.closest('.dd')){S.dd=false;render()}const b=e.target.closest('[data-a]');if(b&&A[b.dataset.a]){const m=!!b.closest('.ddm');if(m)S.dd=false;A[b.dataset.a](b.dataset,b);if(m)render()}});
 document.addEventListener('change',e=>{const b=e.target.closest('[data-c]');if(b&&C[b.dataset.c])C[b.dataset.c](b.value,b)});
 document.addEventListener('input',e=>{if(e.target.dataset.c==='q'){S.q=e.target.value;$('#nl').innerHTML=nlist()}});
 document.addEventListener('pointerdown',e=>{if(e.target.closest('.tb button'))e.preventDefault()});
@@ -256,3 +292,5 @@ DB.load();tmReset('f');render();if(DB.fail)toast('Dados corrompidos: iniciamos d
 
 const CP0=window.Capacitor&&window.Capacitor.Plugins;
 if(CP0&&CP0.App)CP0.App.addListener('backButton',()=>{if($('#modal').className){closeM();return}if(S.nid){S.nid=null;return render()}if(S.pedit){S.pedit=false;return render()}if(S.sid){S.sid=null;return render()}if(S.tab!=='home'){S.tab='home';return render()}CP0.App.exitApp()});
+
+if(LN()){LN().createChannel({id:'studyflow',name:'Lembretes StudyFlow',description:'Aulas, tarefas, eventos e Pomodoro',importance:4,vibration:true}).catch(()=>{});syncNotifs()}

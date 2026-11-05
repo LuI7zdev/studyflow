@@ -1,1 +1,1 @@
-{"appId":"com.studyflow.app","appName":"StudyFlow","webDir":"www","server":{"androidScheme":"https"},"android":{"backgroundColor":"#0a0a1f"}}
+{"appId": "com.studyflow.app", "appName": "StudyFlow", "webDir": "www", "server": {"androidScheme": "https"}, "android": {"backgroundColor": "#0a0a1f"}, "plugins": {"LocalNotifications": {"smallIcon": "ic_stat_icon", "iconColor": "#5B4BF0"}}}
